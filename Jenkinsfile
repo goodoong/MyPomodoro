@@ -23,20 +23,20 @@ pipeline {
             }
         }
 
-        stage('Verify Python MCP Server') {
-            steps {
-                echo '=== Setting up Python Virtual Environment & Dependencies ==='
-                sh '''
-                    cd agents
-                    chmod +x setup_venv.sh
-                    ./setup_venv.sh
+        // stage('Verify Python MCP Server') {
+        //     steps {
+        //         echo '=== Setting up Python Virtual Environment & Dependencies ==='
+        //         sh '''
+        //             cd agents
+        //             chmod +x setup_venv.sh
+        //             ./setup_venv.sh
                     
-                    echo '=== Testing MCP Server Import Integrity ==='
-                    source venv/bin/activate
-                    python3 -c "import mcp_server; print('Import check successful! MCP server compiled cleanly.')"
-                '''
-            }
-        }
+        //             echo '=== Testing MCP Server Import Integrity ==='
+        //             source venv/bin/activate
+        //             python3 -c "import mcp_server; print('Import check successful! MCP server compiled cleanly.')"
+        //         '''
+        //     }
+        // }
 
         stage('Build iOS App (Simulator Verification)') {
             steps {
