@@ -14,12 +14,13 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
-            steps {
-                echo '===== Checkout ====='
-                sh 'ls -la'
-            }
+       stage('Checkout') {
+        steps {
+            echo '===== Checkout ====='
+            checkout scm
+            sh 'git fetch --tags'
         }
+    }
 
         stage('Build') {
             steps {
@@ -126,13 +127,33 @@ pipeline {
         
             steps {
                 sh '''
+                set -e
+        
+                export GH_TOKEN=$GITHUB_TOKEN
+        
+                # 현재 태그 가져오기
                 TAG=$(git describe --tags --exact-match)
         
+                # 이전 태그 가져오기
+                PREV_TAG=$(git describe --tags --abbrev=0 $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || true)
+        
+                # Release Notes 생성
+                if [ -z "$PREV_TAG" ]; then
+                    echo "First release"
+                    CHANGELOG=$(git log --pretty=format:"- %s")
+                else
+                    CHANGELOG=$(git log ${PREV_TAG}..${TAG} --pretty=format:"- %s")
+                fi
+        
+                echo "===== Release Notes ====="
+                echo "$CHANGELOG"
+        
+                # GitHub Release 생성 + DMG 업로드
                 gh release create "$TAG" \
                     release/MyPomodoro.dmg \
                     --repo ${GITHUB_OWNER}/${GITHUB_REPO} \
                     --title "$TAG" \
-                    --notes "Automatic Release"
+                    --notes "$CHANGELOG"
                 '''
             }
         }
