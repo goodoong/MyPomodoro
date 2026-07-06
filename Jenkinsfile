@@ -72,6 +72,23 @@ pipeline {
             }
         }
 
+        stage('Extract App') {
+            steps {
+                echo '===== Extract App ====='
+
+                sh '''
+                mkdir -p release
+
+                cp -R \
+                build/MyPomodoro.xcarchive/Products/Applications/${PROJECT_NAME}.app \
+                release/
+
+                echo "===== Release Folder ====="
+                ls -R release
+                '''
+            }
+}
+
     }
 
     post {
