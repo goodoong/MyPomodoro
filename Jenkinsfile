@@ -3,24 +3,21 @@ pipeline {
 
     environment {
         DEVELOPER_DIR = '/Applications/Xcode.app/Contents/Developer'
-
-        PROJECT_NAME = 'MyPomodoro'
-        SCHEME_NAME  = 'MyPomodoro'
-        XCODE_PROJ   = 'MyPomodoro.xcodeproj'
-        GITHUB_OWNER = 'goodoong'
-        GITHUB_REPO = 'MyPomodoro'
-
+        PROJECT_NAME  = 'MyPomodoro'
+        SCHEME_NAME   = 'MyPomodoro'
+        XCODE_PROJ    = 'MyPomodoro.xcodeproj'
+        GITHUB_OWNER  = 'goodoong'
+        GITHUB_REPO   = 'MyPomodoro'
     }
 
     stages {
-
-       stage('Checkout') {
-        steps {
-            echo '===== Checkout ====='
-            checkout scm
-            sh 'git fetch --tags'
+        stage('Checkout') {
+            steps {
+                echo '===== Checkout ====='
+                checkout scm
+                sh 'git fetch --tags'
+            }
         }
-    }
 
         stage('Build') {
             steps {
@@ -50,7 +47,6 @@ pipeline {
         stage('Archive') {
             steps {
                 echo '===== Archive App ====='
-
                 sh '''
                 mkdir -p build
 
@@ -59,19 +55,6 @@ pipeline {
                     -scheme "${SCHEME_NAME}" \
                     -destination 'platform=macOS' \
                     -archivePath build/${PROJECT_NAME}.xcarchive
-
-                echo "===== Workspace ====="
-                pwd
-
-                echo "===== Build Folder ====="
-                ls -R build || true
-
-                echo "===== XCArchive ====="
-                find . -name "*.xcarchive"
-
-                echo "===== Archive Structure ====="
-
-                find build/MyPomodoro.xcarchive -maxdepth 3
                 '''
             }
         }
@@ -79,16 +62,12 @@ pipeline {
         stage('Extract App') {
             steps {
                 echo '===== Extract App ====='
-
                 sh '''
                 mkdir -p release
 
                 cp -R \
-                build/MyPomodoro.xcarchive/Products/Applications/${PROJECT_NAME}.app \
-                release/
-
-                echo "===== Release Folder ====="
-                ls -R release
+                    build/MyPomodoro.xcarchive/Products/Applications/${PROJECT_NAME}.app \
+                    release/
                 '''
             }
         }
@@ -96,7 +75,6 @@ pipeline {
         stage('Create DMG') {
             steps {
                 echo '===== Create DMG ====='
-
                 sh '''
                 hdiutil create \
                     -volname "${PROJECT_NAME}" \
@@ -104,102 +82,71 @@ pipeline {
                     -ov \
                     -format UDZO \
                     release/${PROJECT_NAME}.dmg
-
-                echo "===== Release Files ====="
-                ls -lh release
                 '''
             }
         }
 
-       
-       stage('GitHub Release') {
-            when {
-                expression {
-                    return sh(
-                        script: 'git describe --tags --exact-match >/dev/null 2>&1',
-                        returnStatus: true
-                    ) == 0
-                }
-            }
-        
+        stage('GitHub Release') {
             environment {
                 GITHUB_TOKEN = credentials('github-token')
             }
-        
             steps {
                 sh '''
                 set -e
-        
                 export GH_TOKEN=$GITHUB_TOKEN
-        
-                # 현재 태그 가져오기
-                TAG=$(git describe --tags --exact-match)
-        
-                # 이전 태그 가져오기
-                PREV_TAG=$(git describe --tags --abbrev=0 $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || true)
-        
-                # Release Notes 생성
+
+                # 1. 태그 감지 및 변수 지정
+                if [ -n "$TAG_NAME" ]; then
+                    TAG=$TAG_NAME
+                elif [ -n "$GITHUB_REF" ]; then
+                    TAG=$(echo $GITHUB_REF | sed 's/refs\\/tags\\///')
+                else
+                    TAG=$(git describe --tags --exact-match 2>/dev/null || true)
+                fi
+
+                # 2. 만약 젠킨스가 태그를 아예 못 찾았다면, 아까 직접 생성하신 v1.0.0을 기본값으로 쓰거나 자동 생성
+                if [ -z "$TAG" ]; then
+                    # 원치 않으시면 이 줄을 TAG="v1.0.0" 처럼 고정하셔도 됩니다.
+                    DATE=$(date +%Y.%m.%d)
+                    TAG="v${DATE}-b${BUILD_NUMBER}"
+                    echo "⚠️ 태그를 감지하지 못해 새 태그를 생성합니다: $TAG"
+                    git tag "$TAG" || true
+                    git push https://${GH_TOKEN}@github.com/${GITHUB_OWNER}/${GITHUB_REPO}.git "$TAG" || true
+                else
+                    echo "✅ 릴리즈용 태그 감지 성공: $TAG"
+                fi
+
+                # 3. 변경 로그(Changelog) 생성
+                PREV_TAG=$(git describe --tags --abbrev=0 "$TAG"^ 2>/dev/null || true)
                 if [ -z "$PREV_TAG" ]; then
-                    echo "First release"
-                    CHANGELOG=$(git log --pretty=format:"- %s")
+                    CHANGELOG=$(git log -n 10 --pretty=format:"- %s")
                 else
                     CHANGELOG=$(git log ${PREV_TAG}..${TAG} --pretty=format:"- %s")
                 fi
-        
-                echo "===== Release Notes ====="
-                echo "$CHANGELOG"
-        
-                # GitHub Release 생성 + DMG 업로드
+
+                # 4. GitHub Release 생성 및 DMG 파일 업로드
+                echo "Creating GitHub Release..."
                 gh release create "$TAG" \
                     release/MyPomodoro.dmg \
-                    --repo ${GITHUB_OWNER}/${GITHUB_REPO} \
+                    --repo "${GITHUB_OWNER}/${GITHUB_REPO}" \
                     --title "$TAG" \
                     --notes "$CHANGELOG"
                 '''
             }
         }
-
     }
 
     post {
-
         success {
             echo '===== Build Success ====='
-    
             archiveArtifacts(
                 artifacts: 'release/**/*',
                 fingerprint: true
             )
         }
-    
         failure {
             echo '===== Build Failed ====='
         }
-    
-        cleanup {
-            echo '===== Clean Workspace ====='
-            cleanWs()
-        }
-    }
-}
-
-    }
-
-    post {
-
-        success {
-            echo '===== Build Success ====='
-    
-            archiveArtifacts(
-                artifacts: 'release/**/*',
-                fingerprint: true
-            )
-        }
-    
-        failure {
-            echo '===== Build Failed ====='
-        }
-    
         cleanup {
             echo '===== Clean Workspace ====='
             cleanWs()
