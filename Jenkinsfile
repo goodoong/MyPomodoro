@@ -90,11 +90,12 @@ pipeline {
             environment {
                 GITHUB_TOKEN = credentials('github-token')
             }
+        
             steps {
                 sh '''
                 set -e
                 export GH_TOKEN=$GITHUB_TOKEN
-
+        
                 # 1. 태그 감지 및 변수 지정
                 if [ -n "$TAG_NAME" ]; then
                     TAG=$TAG_NAME
@@ -103,19 +104,19 @@ pipeline {
                 else
                     TAG=$(git describe --tags --exact-match 2>/dev/null || true)
                 fi
-
-                # 2. 만약 젠킨스가 태그를 아예 못 찾았다면, 아까 직접 생성하신 v1.0.0을 기본값으로 쓰거나 자동 생성
+        
+                # 2. 태그 자동 생성 및 안전하게 푸시 ( extraheader 활용 )
                 if [ -z "$TAG" ]; then
-                    # 원치 않으시면 이 줄을 TAG="v1.0.0" 처럼 고정하셔도 됩니다.
                     DATE=$(date +%Y.%m.%d)
                     TAG="v${DATE}-b${BUILD_NUMBER}"
                     echo "⚠️ 태그를 감지하지 못해 새 태그를 생성합니다: $TAG"
-                    git tag "$TAG" || true
-                    git push https://${GH_TOKEN}@github.com/${GITHUB_OWNER}/${GITHUB_REPO}.git "$TAG" || true
+                    
+                    git tag "$TAG"
+                    git -c http.extraheader="Authorization: Bearer $GITHUB_TOKEN" push origin "$TAG" || true
                 else
                     echo "✅ 릴리즈용 태그 감지 성공: $TAG"
                 fi
-
+        
                 # 3. 변경 로그(Changelog) 생성
                 PREV_TAG=$(git describe --tags --abbrev=0 "$TAG"^ 2>/dev/null || true)
                 if [ -z "$PREV_TAG" ]; then
@@ -123,10 +124,15 @@ pipeline {
                 else
                     CHANGELOG=$(git log ${PREV_TAG}..${TAG} --pretty=format:"- %s")
                 fi
-
-                # 4. GitHub Release 생성 및 DMG 파일 업로드
+        
+                echo "===== Release Notes ====="
+                echo "$CHANGELOG"
+        
+                # 4. GitHub Release 생성 및 DMG 파일 업로드 (gh 절대 경로 지정)
                 echo "Creating GitHub Release..."
-                gh release create "$TAG" \
+                
+                # 💡 만약 실행이 안 된다면 터미널에 'which gh'를 쳐서 나오는 경로(예: /usr/local/bin/gh)로 수정해 주세요.
+                /opt/homebrew/bin/gh release create "$TAG" \
                     release/MyPomodoro.dmg \
                     --repo "${GITHUB_OWNER}/${GITHUB_REPO}" \
                     --title "$TAG" \
