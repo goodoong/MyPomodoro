@@ -86,17 +86,19 @@ pipeline {
             }
         }
 
-        stage('GitHub Release') {
+     stage('GitHub Release') {
             environment {
                 GITHUB_TOKEN = credentials('github-token')
             }
-        
             steps {
                 sh '''
                 set -e
+                
+                # 1. GitHub CLI 인증 토큰 강제 적용
                 export GH_TOKEN=$GITHUB_TOKEN
-        
-                # 1. 태그 감지 및 변수 지정
+                /opt/homebrew/bin/gh auth setup-git
+
+                # 2. 태그 감지 및 변수 지정
                 if [ -n "$TAG_NAME" ]; then
                     TAG=$TAG_NAME
                 elif [ -n "$GITHUB_REF" ]; then
@@ -104,34 +106,34 @@ pipeline {
                 else
                     TAG=$(git describe --tags --exact-match 2>/dev/null || true)
                 fi
-        
-                # 2. 태그 자동 생성 및 안전하게 푸시 ( extraheader 활용 )
+
+                # 3. 태그가 없다면 날짜+빌드번호 조합으로 생성
                 if [ -z "$TAG" ]; then
                     DATE=$(date +%Y.%m.%d)
                     TAG="v${DATE}-b${BUILD_NUMBER}"
                     echo "⚠️ 태그를 감지하지 못해 새 태그를 생성합니다: $TAG"
                     
                     git tag "$TAG"
-                    git -c http.extraheader="Authorization: Bearer $GITHUB_TOKEN" push origin "$TAG" || true
+                    # gh CLI의 인증 체계를 이용해 안전하게 푸시
+                    /opt/homebrew/bin/gh repo fork --remote 2>/dev/null || true # 인증 컨텍스트 유지용
+                    git push origin "$TAG" || true
                 else
                     echo "✅ 릴리즈용 태그 감지 성공: $TAG"
                 fi
-        
-                # 3. 변경 로그(Changelog) 생성
+
+                # 4. 변경 로그(Changelog) 생성
                 PREV_TAG=$(git describe --tags --abbrev=0 "$TAG"^ 2>/dev/null || true)
                 if [ -z "$PREV_TAG" ]; then
                     CHANGELOG=$(git log -n 10 --pretty=format:"- %s")
                 else
                     CHANGELOG=$(git log ${PREV_TAG}..${TAG} --pretty=format:"- %s")
                 fi
-        
+
                 echo "===== Release Notes ====="
                 echo "$CHANGELOG"
-        
-                # 4. GitHub Release 생성 및 DMG 파일 업로드 (gh 절대 경로 지정)
+
+                # 5. GitHub Release 생성 및 DMG 파일 업로드
                 echo "Creating GitHub Release..."
-                
-                # 💡 만약 실행이 안 된다면 터미널에 'which gh'를 쳐서 나오는 경로(예: /usr/local/bin/gh)로 수정해 주세요.
                 /opt/homebrew/bin/gh release create "$TAG" \
                     release/MyPomodoro.dmg \
                     --repo "${GITHUB_OWNER}/${GITHUB_REPO}" \
