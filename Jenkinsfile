@@ -113,18 +113,18 @@ pipeline {
 
         success {
             echo '===== Build Success ====='
-
-            // archiveArtifacts(
-            //     artifacts: 'build/**/*',
-            //     fingerprint: true
-            // )
+    
+            archiveArtifacts(
+                artifacts: 'release/**/*',
+                fingerprint: true
+            )
         }
-
+    
         failure {
             echo '===== Build Failed ====='
         }
-
-        always {
+    
+        cleanup {
             echo '===== Clean Workspace ====='
             cleanWs()
         }
