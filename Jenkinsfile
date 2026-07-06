@@ -87,7 +87,25 @@ pipeline {
                 ls -R release
                 '''
             }
-}
+        }
+
+        stage('Create DMG') {
+            steps {
+                echo '===== Create DMG ====='
+
+                sh '''
+                hdiutil create \
+                    -volname "${PROJECT_NAME}" \
+                    -srcfolder release/${PROJECT_NAME}.app \
+                    -ov \
+                    -format UDZO \
+                    release/${PROJECT_NAME}.dmg
+
+                echo "===== Release Files ====="
+                ls -lh release
+                '''
+            }
+        }
 
     }
 
