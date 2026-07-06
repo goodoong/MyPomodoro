@@ -72,10 +72,10 @@ pipeline {
         success {
             echo '===== Build Success ====='
 
-            archiveArtifacts(
-                artifacts: 'build/**/*',
-                fingerprint: true
-            )
+            // archiveArtifacts(
+            //     artifacts: 'build/**/*',
+            //     fingerprint: true
+            // )
         }
 
         failure {
