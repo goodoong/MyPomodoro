@@ -139,6 +139,7 @@ pipeline {
                     --repo "${GITHUB_OWNER}/${GITHUB_REPO}" \
                     --title "$TAG" \
                     --notes "$CHANGELOG"
+                    --clobber
                 '''
             }
         }
