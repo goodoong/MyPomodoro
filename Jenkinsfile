@@ -59,10 +59,13 @@ pipeline {
                 echo "===== Workspace ====="
                 pwd
 
-                echo "===== Files ====="
-                find .
+                echo "===== Build Folder ====="
+                ls -R build || true
+
+                echo "===== XCArchive ====="
+                find . -name "*.xcarchive"
                 '''
-             }
+            }
         }
 
     }
