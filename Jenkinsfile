@@ -111,6 +111,119 @@ pipeline {
             }
         }
 
+       pipeline {
+    agent any
+
+    environment {
+        DEVELOPER_DIR = '/Applications/Xcode.app/Contents/Developer'
+
+        PROJECT_NAME = 'MyPomodoro'
+        SCHEME_NAME  = 'MyPomodoro'
+        XCODE_PROJ   = 'MyPomodoro.xcodeproj'
+        GITHUB_OWNER = 'goodoong'
+        GITHUB_REPO = 'MyPomodoro'
+
+    }
+
+    stages {
+
+       stage('Checkout') {
+        steps {
+            echo '===== Checkout ====='
+            checkout scm
+            sh 'git fetch --tags'
+        }
+    }
+
+        stage('Build') {
+            steps {
+                echo '===== Build macOS ====='
+                sh '''
+                xcodebuild \
+                    -project "${XCODE_PROJ}" \
+                    -scheme "${SCHEME_NAME}" \
+                    -destination 'platform=macOS' \
+                    clean build
+                '''
+            }
+        }
+
+        stage('Unit Test') {
+            steps {
+                echo '===== Running Unit Tests ====='
+                sh '''
+                xcodebuild test \
+                    -project "${XCODE_PROJ}" \
+                    -scheme "${SCHEME_NAME}" \
+                    -destination 'platform=macOS'
+                '''
+            }
+        }
+
+        stage('Archive') {
+            steps {
+                echo '===== Archive App ====='
+
+                sh '''
+                mkdir -p build
+
+                xcodebuild archive \
+                    -project "${XCODE_PROJ}" \
+                    -scheme "${SCHEME_NAME}" \
+                    -destination 'platform=macOS' \
+                    -archivePath build/${PROJECT_NAME}.xcarchive
+
+                echo "===== Workspace ====="
+                pwd
+
+                echo "===== Build Folder ====="
+                ls -R build || true
+
+                echo "===== XCArchive ====="
+                find . -name "*.xcarchive"
+
+                echo "===== Archive Structure ====="
+
+                find build/MyPomodoro.xcarchive -maxdepth 3
+                '''
+            }
+        }
+
+        stage('Extract App') {
+            steps {
+                echo '===== Extract App ====='
+
+                sh '''
+                mkdir -p release
+
+                cp -R \
+                build/MyPomodoro.xcarchive/Products/Applications/${PROJECT_NAME}.app \
+                release/
+
+                echo "===== Release Folder ====="
+                ls -R release
+                '''
+            }
+        }
+
+        stage('Create DMG') {
+            steps {
+                echo '===== Create DMG ====='
+
+                sh '''
+                hdiutil create \
+                    -volname "${PROJECT_NAME}" \
+                    -srcfolder release/${PROJECT_NAME}.app \
+                    -ov \
+                    -format UDZO \
+                    release/${PROJECT_NAME}.dmg
+
+                echo "===== Release Files ====="
+                ls -lh release
+                '''
+            }
+        }
+
        stage('GitHub Release') {
             when {
                 expression {
@@ -157,6 +270,30 @@ pipeline {
                 '''
             }
         }
+
+    }
+
+    post {
+
+        success {
+            echo '===== Build Success ====='
+    
+            archiveArtifacts(
+                artifacts: 'release/**/*',
+                fingerprint: true
+            )
+        }
+    
+        failure {
+            echo '===== Build Failed ====='
+        }
+    
+        cleanup {
+            echo '===== Clean Workspace ====='
+            cleanWs()
+        }
+    }
+}
 
     }
 
