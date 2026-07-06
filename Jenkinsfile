@@ -7,6 +7,9 @@ pipeline {
         PROJECT_NAME = 'MyPomodoro'
         SCHEME_NAME  = 'MyPomodoro'
         XCODE_PROJ   = 'MyPomodoro.xcodeproj'
+        GITHUB_OWNER = 'goodoong'
+        GITHUB_REPO = 'MyPomodoro'
+
     }
 
     stages {
