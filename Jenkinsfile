@@ -55,8 +55,14 @@ pipeline {
                     -scheme "${SCHEME_NAME}" \
                     -destination 'platform=macOS' \
                     -archivePath build/${PROJECT_NAME}.xcarchive
+
+                echo "===== Workspace ====="
+                pwd
+
+                echo "===== Files ====="
+                find .
                 '''
-            }
+             }
         }
 
     }
