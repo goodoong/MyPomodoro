@@ -64,6 +64,11 @@ pipeline {
 
                 echo "===== XCArchive ====="
                 find . -name "*.xcarchive"
+
+                sh '''
+                echo "===== Archive Structure ====="
+
+                find build/MyPomodoro.xcarchive -maxdepth 3
                 '''
             }
         }
