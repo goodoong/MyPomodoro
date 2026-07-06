@@ -110,30 +110,31 @@ pipeline {
             }
         }
 
-        stage('GitHub Release') {
-
+       stage('GitHub Release') {
+            when {
+                expression {
+                    return sh(
+                        script: 'git describe --tags --exact-match >/dev/null 2>&1',
+                        returnStatus: true
+                    ) == 0
+                }
+            }
+        
             environment {
                 GITHUB_TOKEN = credentials('github-token')
             }
         
             steps {
-        
                 sh '''
-        
                 TAG=$(git describe --tags --exact-match)
-        
-                echo "Release Tag = $TAG"
         
                 gh release create "$TAG" \
                     release/MyPomodoro.dmg \
-                    --repo goodoong/MyPomodoro \
+                    --repo ${GITHUB_OWNER}/${GITHUB_REPO} \
                     --title "$TAG" \
-                    --notes "Release generated automatically by Jenkins"
-        
+                    --notes "Automatic Release"
                 '''
-
             }
-
         }
 
     }
