@@ -110,6 +110,34 @@ pipeline {
             }
         }
 
+        stage('GitHub Release') {
+
+            when {
+                buildingTag()
+            }
+        
+            environment {
+                GITHUB_TOKEN = credentials('github-token')
+            }
+        
+            steps {
+        
+                sh '''
+        
+        TAG=${GIT_TAG_NAME}
+        
+        gh release create "$TAG" \
+        release/MyPomodoro.dmg \
+        --repo ${GITHUB_OWNER}/${GITHUB_REPO} \
+        --title "$TAG" \
+        --notes "Automatic release from Jenkins"
+        
+        '''
+        
+            }
+        
+        }
+
     }
 
     post {
