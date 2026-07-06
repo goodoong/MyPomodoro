@@ -138,7 +138,7 @@ pipeline {
                     release/MyPomodoro.dmg \
                     --repo "${GITHUB_OWNER}/${GITHUB_REPO}" \
                     --title "$TAG" \
-                    --notes "$CHANGELOG"
+                    --notes "$CHANGELOG"\
                     --clobber
                 '''
             }
